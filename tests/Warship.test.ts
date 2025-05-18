@@ -1,4 +1,5 @@
 import { SpawnExecution } from "../src/core/execution/SpawnExecution";
+import { WarshipExecution } from "../src/core/execution/WarshipExecution";
 import {
   Game,
   Player,
@@ -67,7 +68,9 @@ describe("Warship", () => {
     const warship = player1.buildUnit(
       UnitType.Warship,
       game.ref(coastX + 1, 10),
-      {},
+      {
+        patrolTile: game.ref(coastX + 1, 10),
+      },
     );
 
     game.executeNextTick();
@@ -85,12 +88,17 @@ describe("Warship", () => {
   });
 
   test("Warship captures trade if player has port", async () => {
-    constructionExecution(game, player1.id(), coastX, 10, UnitType.Port);
-    constructionExecution(game, player1.id(), coastX + 1, 10, UnitType.Warship);
-    // Warship need one more tick (for warship exec to actually build warship)
-    game.executeNextTick();
-    expect(player1.units(UnitType.Warship)).toHaveLength(1);
-    expect(player1.units(UnitType.Port)).toHaveLength(1);
+    const portTile = game.ref(coastX, 10);
+    // Player must own land port spawns on.
+    player1.conquer(portTile);
+    player1.buildUnit(UnitType.Port, portTile, {});
+    game.addExecution(
+      new WarshipExecution(
+        player1.buildUnit(UnitType.Warship, portTile, {
+          patrolTile: portTile,
+        }),
+      ),
+    );
 
     const dstPort = player2.buildUnit(
       UnitType.Port,
@@ -98,8 +106,6 @@ describe("Warship", () => {
       {},
     );
 
-    // Cannot buildExec with trade ship as it's not buildable (but
-    // we can obviously directly add it to the player)
     const tradeShip = player2.buildUnit(
       UnitType.TradeShip,
       game.ref(coastX + 1, 7),
